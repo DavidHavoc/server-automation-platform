@@ -1,0 +1,46 @@
+# Development override for docker-compose.yml
+# Use: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+version: '3.8'
+
+services:
+  # Development overrides for AWX services
+  awx_web:
+    environment:
+      AWX_ADMIN_PASSWORD: admin123
+    ports:
+      - "8080:8052"
+    volumes:
+      - ./data/playbooks:/var/lib/awx/projects/custom_playbooks:rw
+
+  awx_task:
+    environment:
+      AWX_ADMIN_PASSWORD: admin123
+    volumes:
+      - ./data/playbooks:/var/lib/awx/projects/custom_playbooks:rw
+
+  # Development API with hot reload
+  server_api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+    volumes:
+      - ./api/src:/app/src:rw
+      - ./data:/app/data:rw
+    command: ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+
+  # PostgreSQL with exposed port for development
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: devpass
+
+  # Redis with exposed port for development
+  redis:
+    ports:
+      - "6379:6379"
+

@@ -1,0 +1,184 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (shared between AWX and our API)
+  postgres:
+    image: postgres:13
+    container_name: awx_postgres
+    environment:
+      POSTGRES_DB: awx
+      POSTGRES_USER: awx
+      POSTGRES_PASSWORD: awxpass
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - awx_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U awx -d awx"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis for AWX message broker
+  redis:
+    image: redis:7-alpine
+    container_name: awx_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - awx_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # AWX Web Service
+  awx_web:
+    image: quay.io/ansible/awx:24.6.1
+    container_name: awx_web
+    hostname: awx_web
+    user: root
+    environment:
+      http_proxy: 
+      https_proxy: 
+      no_proxy: 
+      SECRET_KEY: awxsecret
+      DATABASE_NAME: awx
+      DATABASE_USER: awx
+      DATABASE_PASSWORD: awxpass
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AWX_ADMIN_USER: admin
+      AWX_ADMIN_PASSWORD: password
+    volumes:
+      - awx_projects:/var/lib/awx/projects
+      - awx_job_status:/var/lib/awx/job_status
+      - ./data/playbooks:/var/lib/awx/projects/custom_playbooks:ro
+    ports:
+      - "8080:8052"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - awx_network
+    restart: unless-stopped
+    command: >
+      bash -c "
+        awx-manage migrate &&
+        awx-manage create_preload_data &&
+        awx-manage provision_instance --hostname=awx_web &&
+        awx-manage register_queue --queuename=default --instance_percent=100 &&
+        supervisord -c /etc/supervisord.conf
+      "
+
+  # AWX Task Service
+  awx_task:
+    image: quay.io/ansible/awx:24.6.1
+    container_name: awx_task
+    hostname: awx_task
+    user: root
+    environment:
+      http_proxy: 
+      https_proxy: 
+      no_proxy: 
+      SECRET_KEY: awxsecret
+      DATABASE_NAME: awx
+      DATABASE_USER: awx
+      DATABASE_PASSWORD: awxpass
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AWX_ADMIN_USER: admin
+      AWX_ADMIN_PASSWORD: password
+    volumes:
+      - awx_projects:/var/lib/awx/projects
+      - awx_job_status:/var/lib/awx/job_status
+      - ./data/playbooks:/var/lib/awx/projects/custom_playbooks:ro
+      - ./data/ssh_keys:/var/lib/awx/ssh_keys:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - awx_network
+    restart: unless-stopped
+    command: >
+      bash -c "
+        awx-manage provision_instance --hostname=awx_task &&
+        supervisord -c /etc/supervisord_task.conf
+      "
+
+  # Custom Server Management API
+  server_api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: server_management_api
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://awx:awxpass@postgres:5432/awx
+      AWX_HOST: awx_web
+      AWX_PORT: 8052
+      AWX_USERNAME: admin
+      AWX_PASSWORD: password
+      SECRET_KEY: your-secret-key-here
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      awx_web:
+        condition: service_started
+    networks:
+      - awx_network
+    restart: unless-stopped
+
+  # Nginx reverse proxy for frontend
+  nginx:
+    image: nginx:alpine
+    container_name: awx_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - awx_web
+      - server_api
+    networks:
+      - awx_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  awx_projects:
+    driver: local
+  awx_job_status:
+    driver: local
+
+networks:
+  awx_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
