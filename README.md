@@ -1053,7 +1053,7 @@ If you encounter issues not covered in this guide:
 2. **Enable Debug Logging**: Gather detailed logs before reporting issues
 3. **Provide System Information**: Include OS, Docker version, and error messages
 4. **Create Minimal Reproduction**: Provide steps to reproduce the issue
-5. **Community Support**: Join our community forums for assistance
+5. **Community Support**: 
 
 Remember to sanitize any sensitive information (passwords, IP addresses, etc.) before sharing logs or configurations.
 
