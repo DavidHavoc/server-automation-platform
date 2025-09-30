@@ -1183,10 +1183,6 @@ When reporting bugs or requesting features:
 - Update API documentation for endpoint changes
 - Ensure README accuracy
 
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
 ### Third-Party Licenses
 
 This project includes several third-party components with their own licenses:
