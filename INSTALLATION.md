@@ -114,7 +114,7 @@ sudo usermod -aG docker $USER
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/server-automation-platform.git
+git clone https://github.com/DavidHavoc/server-automation-platform.git
 cd server-automation-platform
 
 # Verify contents
