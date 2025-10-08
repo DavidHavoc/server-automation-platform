@@ -137,21 +137,41 @@ nano .env  # or use your preferred editor
 # Database Configuration
 POSTGRES_DB=awx
 POSTGRES_USER=awx
-POSTGRES_PASSWORD=change_this_secure_password
+POSTGRES_PASSWORD=awxpass
 
 # AWX Configuration
 AWX_ADMIN_USER=admin
-AWX_ADMIN_PASSWORD=change_this_admin_password
-SECRET_KEY=change_this_secret_key_to_something_random
+AWX_ADMIN_PASSWORD=password
+SECRET_KEY=awxsecret
 
 # API Configuration
-API_SECRET_KEY=change_this_api_secret_key
+FLASK_ENV=production
+DATABASE_URL=postgresql://awx:awxpass@postgres:5432/awx
+AWX_HOST=awx_web
+AWX_PORT=8052
+AWX_USERNAME=admin
+AWX_PASSWORD=password
+API_SECRET_KEY=your-secret-key-here
+
+# Redis Configuration
+REDIS_HOST=redis
+REDIS_PORT=6379
 
 # Network Configuration
 AWX_WEB_PORT=8080
 API_PORT=5000
 NGINX_HTTP_PORT=80
 NGINX_HTTPS_PORT=443
+
+# SSL Configuration (optional)
+SSL_CERT_PATH=./nginx/ssl/cert.pem
+SSL_KEY_PATH=./nginx/ssl/key.pem
+
+# Data Directories
+PLAYBOOKS_DIR=./data/playbooks
+SSH_KEYS_DIR=./data/ssh_keys
+LOGS_DIR=./data/logs
+
 ```
 
 **Security Note:** Always change default passwords and use strong, randomly generated values for production deployments.
